@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
     private Button tabApps, tabScreen, tabLog;
     private EditText etSearch;
     private ListView lvApps, lvDisplays, lvLog;
-    private Button btnUser, btnSys, btnDestroy, btnRefresh, btnHome, btnStopTop,
+    private Button btnUser, btnSys, btnRefreshApps, btnDestroy, btnRefresh, btnHome, btnStopTop,
             btnClearLog, btnRefreshLog, btnBattery, btnScreenOff;
     private CheckBox cbAutoReturn, cbBall;
 
@@ -195,6 +195,7 @@ public class MainActivity extends AppCompatActivity {
         tvScreenInfo = findViewById(R.id.tvScreenInfo);
         btnUser = findViewById(R.id.btnUser);
         btnSys = findViewById(R.id.btnSys);
+        btnRefreshApps = findViewById(R.id.btnRefreshApps);
         btnDestroy = findViewById(R.id.btnDestroy);
         btnRefresh = findViewById(R.id.btnRefresh);
         btnHome = findViewById(R.id.btnHome);
@@ -211,17 +212,18 @@ public class MainActivity extends AppCompatActivity {
         cbAutoReturn.setChecked(Prefs.getBool(Prefs.K_AUTO_RETURN, true));
         cbBall.setChecked(Prefs.getBool(Prefs.K_BALL, false));
 
-        tabApps.setOnClickListener(v -> switchTab(0));
-        tabScreen.setOnClickListener(v -> switchTab(1));
+        tabScreen.setOnClickListener(v -> switchTab(0));
+        tabApps.setOnClickListener(v -> switchTab(1));
         tabLog.setOnClickListener(v -> switchTab(2));
     }
 
     private void switchTab(int i) {
-        pageApps.setVisibility(i == 0 ? View.VISIBLE : View.GONE);
-        pageScreen.setVisibility(i == 1 ? View.VISIBLE : View.GONE);
+        // 0=虚拟屏（首页） 1=应用 2=日志
+        pageScreen.setVisibility(i == 0 ? View.VISIBLE : View.GONE);
+        pageApps.setVisibility(i == 1 ? View.VISIBLE : View.GONE);
         pageLog.setVisibility(i == 2 ? View.VISIBLE : View.GONE);
-        tabApps.setActivated(i == 0);
-        tabScreen.setActivated(i == 1);
+        tabScreen.setActivated(i == 0);
+        tabApps.setActivated(i == 1);
         tabLog.setActivated(i == 2);
         if (i == 2) refreshLog();
     }
@@ -346,6 +348,8 @@ public class MainActivity extends AppCompatActivity {
         });
         btnUser.setActivated(true);
 
+        btnRefreshApps.setOnClickListener(v -> refreshApps());
+
         etSearch.addTextChangedListener(new android.text.TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int a, int b, int c) {
@@ -388,6 +392,23 @@ public class MainActivity extends AppCompatActivity {
                 : ("用户 " + userApps.size() + " · 系统 " + sysApps.size()
                 + " · 当前显示 " + shown.size()
                 + (showSystem ? "（系统应用）" : "（用户应用）")));
+    }
+
+    /** 重新扫描已安装应用并刷新列表（无入口软件会被过滤掉） */
+    private void refreshApps() {
+        loadingApps = true;
+        tvCount.setText("正在重新加载应用列表…");
+        Logger.log("手动刷新应用列表");
+        Apps.loadAsync(this, (user, system) -> {
+            userApps.clear();
+            userApps.addAll(user);
+            sysApps.clear();
+            sysApps.addAll(system);
+            loadingApps = false;
+            Logger.log("应用列表刷新：用户 " + user.size() + " · 系统 " + system.size());
+            applyFilter();
+            toast("应用列表已刷新");
+        });
     }
 
     private class AppAdapter extends BaseAdapter {

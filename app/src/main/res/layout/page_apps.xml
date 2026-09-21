@@ -37,6 +37,15 @@
             android:layout_weight="1"
             android:text="系统应用"
             android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/btnRefreshApps"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_marginLeft="6dp"
+            android:layout_weight="1"
+            android:text="刷新"
+            android:textSize="13sp" />
     </LinearLayout>
 
     <TextView

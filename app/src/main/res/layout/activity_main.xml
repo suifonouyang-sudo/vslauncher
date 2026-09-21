@@ -55,20 +55,20 @@
         android:orientation="horizontal">
 
         <Button
-            android:id="@+id/tabApps"
+            android:id="@+id/tabScreen"
             android:layout_width="0dp"
             android:layout_height="38dp"
             android:layout_weight="1"
-            android:text="应用"
+            android:text="虚拟屏"
             android:textSize="14sp" />
 
         <Button
-            android:id="@+id/tabScreen"
+            android:id="@+id/tabApps"
             android:layout_width="0dp"
             android:layout_height="38dp"
             android:layout_marginLeft="6dp"
             android:layout_weight="1"
-            android:text="虚拟屏"
+            android:text="应用"
             android:textSize="14sp" />
 
         <Button
@@ -88,12 +88,12 @@
         android:layout_weight="1">
 
         <include
-            android:id="@+id/pageApps"
-            layout="@layout/page_apps" />
-
-        <include
             android:id="@+id/pageScreen"
             layout="@layout/page_screen" />
+
+        <include
+            android:id="@+id/pageApps"
+            layout="@layout/page_apps" />
 
         <include
             android:id="@+id/pageLog"

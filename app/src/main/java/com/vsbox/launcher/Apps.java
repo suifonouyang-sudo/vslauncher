@@ -52,6 +52,7 @@ public final class Apps {
         List<Info> list = new ArrayList<>();
         PackageManager pm = c.getPackageManager();
         List<ApplicationInfo> ais = pm.getInstalledApplications(0);
+        int hidden = 0;
         for (ApplicationInfo ai : ais) {
             Info i = new Info();
             i.pkg = ai.packageName;
@@ -67,10 +68,18 @@ public final class Apps {
             } catch (Throwable ignored) {
             }
             i.comp = launcherComponent(pm, i.pkg);
+            // 没有可启动入口（无桌面图标）的软件：直接隐藏，不在列表显示
+            if (i.comp == null) {
+                hidden++;
+                continue;
+            }
             list.add(i);
         }
         Collator col = Collator.getInstance(Locale.CHINA);
         list.sort((a, b) -> col.compare(a.label, b.label));
+        if (hidden > 0) {
+            Logger.log("已隐藏无入口软件 " + hidden + " 个（仅显示可启动的应用）");
+        }
         return list;
     }
 
