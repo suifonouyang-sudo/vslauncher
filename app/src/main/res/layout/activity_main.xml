@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="虚拟屏桌面"
+            android:textColor="@color/text"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/tvShizuku"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_card"
+            android:paddingLeft="8dp"
+            android:paddingTop="4dp"
+            android:paddingRight="8dp"
+            android:paddingBottom="4dp"
+            android:text="Shizuku 检测中…"
+            android:textColor="@color/text_sub"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvVScreen"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="虚拟屏：未创建"
+        android:textColor="@color/primary"
+        android:textSize="12sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/tabApps"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:text="应用"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/tabScreen"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_marginLeft="6dp"
+            android:layout_weight="1"
+            android:text="虚拟屏"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/tabLog"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_marginLeft="6dp"
+            android:layout_weight="1"
+            android:text="日志"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_weight="1">
+
+        <include
+            android:id="@+id/pageApps"
+            layout="@layout/page_apps" />
+
+        <include
+            android:id="@+id/pageScreen"
+            layout="@layout/page_screen" />
+
+        <include
+            android:id="@+id/pageLog"
+            layout="@layout/page_log" />
+    </FrameLayout>
+
+</LinearLayout>

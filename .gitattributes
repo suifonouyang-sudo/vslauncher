@@ -1,0 +1,19 @@
+# 默认：仓库里统一 LF，checkout 时也不做转换
+* text=auto eol=lf
+
+# shell 脚本必须 LF，否则 Linux/macOS 上执行报错
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Windows 批处理必须 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制文件不做换行处理
+*.jar binary
+*.apk binary
+*.aab binary
+*.png binary
+*.jpg binary
+*.keystore binary
+*.jks binary
