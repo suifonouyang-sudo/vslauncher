@@ -259,18 +259,6 @@ public class FloatingService extends Service {
             });
         }));
 
-        panelBox.addView(mkBtn("新建虚拟屏", v -> {
-            hidePanel();
-            int w = Prefs.getInt(Prefs.K_W, 720);
-            int h = Prefs.getInt(Prefs.K_H, 1280);
-            int dpi = Prefs.getInt(Prefs.K_DPI, 280);
-            toast("正在创建 " + w + "x" + h + " …");
-            bg(() -> {
-                int d = VScreen.create(w, h, dpi);
-                toast(d >= 0 ? "虚拟屏已创建：#" + d : "创建失败，检查 Shizuku 授权");
-            });
-        }));
-
         panelBox.addView(mkBtn("销毁虚拟屏", v -> {
             hidePanel();
             bg(() -> {
@@ -349,9 +337,10 @@ public class FloatingService extends Service {
             return;
         }
         bg(() -> {
-            int d = ensureDisplay();
+            int d = currentOverlayDisplay();
             if (d < 0) {
-                toast("虚拟屏不可用");
+                Logger.log("悬浮球取消启动 " + pkg + "：没有可用虚拟屏（需先手动创建）");
+                toast("还没有虚拟屏，请先在应用里创建一块");
                 return;
             }
             String comp = Apps.launcherComponent(getPackageManager(), pkg);
@@ -365,12 +354,10 @@ public class FloatingService extends Service {
         });
     }
 
-    private int ensureDisplay() {
+    /** 当前虚拟屏 id；没有则 -1。不自动建屏，与主界面保持一致 */
+    private int currentOverlayDisplay() {
         VScreen.Disp d = VScreen.pickOverlay();
-        if (d != null) return d.id;
-        return VScreen.create(Prefs.getInt(Prefs.K_W, 720),
-                Prefs.getInt(Prefs.K_H, 1280),
-                Prefs.getInt(Prefs.K_DPI, 280));
+        return d != null ? d.id : -1;
     }
 
     private void bg(Runnable r) {

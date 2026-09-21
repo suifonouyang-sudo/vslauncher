@@ -6,12 +6,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 虚拟屏管理：创建 / 销毁 / 枚举 overlay 虚拟屏，把应用启动到指定屏。
+ * 虚拟屏管理：枚举已有 overlay 虚拟屏、把应用启动到指定屏、销毁。
  *
  * 全部依赖 shell(uid 2000)：
- * - 建屏    settings put global overlay_display_devices "WxH/dpi"（多屏用 ; 分隔）
- * - 启动    am start --display <id> -n pkg/act
  * - 枚举    dumpsys display 的 DisplayViewport 段（必须按段切，整行扫描会漏）
+ * - 启动    am start --display <id> -n pkg/act
+ * - 销毁    settings put global overlay_display_devices ""
+ *
+ * 注意：本类**不提供创建虚拟屏的能力**。虚拟屏需由外部手段先建好
+ * （adb shell settings put global overlay_display_devices "WxH/dpi"，或 scrcpy 之类的工具），
+ * 本应用只负责识别已有虚拟屏并在其上启动应用。
  */
 public final class VScreen {
 
@@ -109,49 +113,6 @@ public final class VScreen {
     public static Disp byId(int id) {
         for (Disp d : list()) if (d.id == id) return d;
         return null;
-    }
-
-    /**
-     * 创建一个 overlay 虚拟屏。返回新建的 displayId，失败返回 -1。
-     * 建屏是异步的（system_server 要起来），这里轮询最多 6 秒。
-     */
-    public static int create(int w, int h, int dpi) {
-        // 已经有一块自己建的屏就复用，避免"点一次多一块"
-        Disp exist = pickOverlay();
-        if (exist != null) {
-            Logger.log("已存在虚拟屏 display " + exist.id + "，直接复用");
-            return exist.id;
-        }
-        String cur = currentSpec();
-        String spec = w + "x" + h + "/" + dpi;
-        String next = cur.isEmpty() ? spec : cur + ";" + spec;
-        ShizukuShell.Result r = ShizukuShell.exec("settings put global overlay_display_devices \"" + next + "\"");
-        if (r.error != null) return -1;
-
-        List<Integer> before = idsOf(list());
-        for (int i = 0; i < 12; i++) {
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException ignored) {
-            }
-            List<Disp> now = list();
-            for (Disp d : now) {
-                if (d.isOverlay() && !before.contains(d.id)) {
-                    Logger.log("VScreen create -> display " + d.id + " (" + spec + ")");
-                    return d.id;
-                }
-            }
-        }
-        // 兜底：没能确定"新"的，就返回任意一个 overlay 屏
-        Disp d = pickOverlay();
-        if (d != null) return d.id;
-        return -1;
-    }
-
-    private static List<Integer> idsOf(List<Disp> l) {
-        List<Integer> r = new ArrayList<>();
-        for (Disp d : l) r.add(d.id);
-        return r;
     }
 
     /** 销毁全部虚拟屏（只清 overlay 配置，不影响第三方建的屏） */

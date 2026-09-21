@@ -43,9 +43,9 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvShizuku, tvVScreen, tvCount, tvScreenInfo;
     private View pageApps, pageScreen, pageLog;
     private Button tabApps, tabScreen, tabLog;
-    private EditText etSearch, etW, etH, etDpi;
+    private EditText etSearch;
     private ListView lvApps, lvDisplays, lvLog;
-    private Button btnUser, btnSys, btnCreate, btnDestroy, btnRefresh, btnHome, btnStopTop,
+    private Button btnUser, btnSys, btnDestroy, btnRefresh, btnHome, btnStopTop,
             btnClearLog, btnRefreshLog, btnBattery, btnScreenOff;
     private CheckBox cbAutoReturn, cbBall;
 
@@ -115,11 +115,12 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * 外部触发入口（adb / Tasker 都能用）：
-     *   am start -n com.vsbox.launcher/.MainActivity --es vs_pkg <包名>   在虚拟屏打开
-     *   am start -n com.vsbox.launcher/.MainActivity --ez vs_ball true    打开悬浮球
-     *   am start -n com.vsbox.launcher/.MainActivity --ez vs_stop true    关闭悬浮球
-     *   am start -n com.vsbox.launcher/.MainActivity --ez vs_create true  创建虚拟屏
-     *   am start -n com.vsbox.launcher/.MainActivity --ez vs_destroy true 销毁全部虚拟屏
+     *   am start -n com.vsbox.launcher/.MainActivity --es vs_pkg <包名>                     选择屏幕并打开
+     *   am start -n com.vsbox.launcher/.MainActivity --es vs_pkg <包名> --ei vs_display 13  直接指定屏
+     *   am start -n com.vsbox.launcher/.MainActivity --ez vs_ball true                      打开悬浮球
+     *   am start -n com.vsbox.launcher/.MainActivity --ez vs_stop true                      关闭悬浮球
+     *   am start -n com.vsbox.launcher/.MainActivity --ez vs_destroy true                   销毁全部虚拟屏
+     * 注意：本应用**不创建虚拟屏**，请先用外部命令建好（详见虚拟屏页的说明文字）。
      */
     private void handleIntentExtras() {
         Intent it = getIntent();
@@ -132,16 +133,6 @@ public class MainActivity extends AppCompatActivity {
             if (cbBall.isChecked()) cbBall.setChecked(false);
             stopBall();
         }
-        if (it.getBooleanExtra("vs_create", false)) {
-            bg(() -> {
-                int d = VScreen.create(Prefs.getInt(Prefs.K_W, 720), Prefs.getInt(Prefs.K_H, 1280),
-                        Prefs.getInt(Prefs.K_DPI, 280));
-                Logger.log("外部触发：创建虚拟屏 -> " + (d >= 0 ? ("display " + d) : "失败"));
-                toast(d >= 0 ? "虚拟屏已创建：#" + d : "创建失败");
-                if (d >= 0) selectedDisplay = d;
-                refreshDisplays();
-            });
-        }
         if (it.getBooleanExtra("vs_destroy", false)) {
             bg(() -> {
                 VScreen.destroyAll();
@@ -152,12 +143,15 @@ public class MainActivity extends AppCompatActivity {
         }
         String pkg = it.getStringExtra("vs_pkg");
         if (pkg != null && !pkg.isEmpty()) {
-            startPkgOnVScreen(pkg);
+            startPkgOnVScreen(pkg, it.getIntExtra("vs_display", -1));
         }
     }
 
-    /** 只给包名也能在虚拟屏打开（自己查可启动 Activity） */
-    private void startPkgOnVScreen(String pkg) {
+    /**
+     * 只给包名也能打开（自己查可启动 Activity）。
+     * wantDisplay >= 0 时直接在指定屏启动；否则弹出屏幕选择框。
+     */
+    private void startPkgOnVScreen(String pkg, int wantDisplay) {
         Apps.Info i = new Apps.Info();
         i.pkg = pkg;
         try {
@@ -167,8 +161,21 @@ public class MainActivity extends AppCompatActivity {
             i.label = pkg;
         }
         i.comp = Apps.launcherComponent(getPackageManager(), pkg);
-        Logger.log("外部触发：在虚拟屏打开 " + pkg);
-        startOnVScreen(i);
+        Logger.log("外部触发：打开 " + pkg + (wantDisplay >= 0 ? ("（指定屏 #" + wantDisplay + "）") : ""));
+        if (wantDisplay >= 0) {
+            VScreen.Disp d = VScreen.byId(wantDisplay);
+            launchOn(i, d != null ? d : newDisplayStub(wantDisplay));
+        } else {
+            startOnVScreen(i);
+        }
+    }
+
+    /** 指定了 displayId 但屏幕上还没解析出来时的占位（直接用 id 启动即可） */
+    private VScreen.Disp newDisplayStub(int id) {
+        VScreen.Disp d = new VScreen.Disp();
+        d.id = id;
+        d.uniqueId = "";
+        return d;
     }
 
     private void bindViews() {
@@ -181,9 +188,6 @@ public class MainActivity extends AppCompatActivity {
         tabScreen = findViewById(R.id.tabScreen);
         tabLog = findViewById(R.id.tabLog);
         etSearch = findViewById(R.id.etSearch);
-        etW = findViewById(R.id.etW);
-        etH = findViewById(R.id.etH);
-        etDpi = findViewById(R.id.etDpi);
         lvApps = findViewById(R.id.lvApps);
         lvDisplays = findViewById(R.id.lvDisplays);
         lvLog = findViewById(R.id.lvLog);
@@ -191,7 +195,6 @@ public class MainActivity extends AppCompatActivity {
         tvScreenInfo = findViewById(R.id.tvScreenInfo);
         btnUser = findViewById(R.id.btnUser);
         btnSys = findViewById(R.id.btnSys);
-        btnCreate = findViewById(R.id.btnCreate);
         btnDestroy = findViewById(R.id.btnDestroy);
         btnRefresh = findViewById(R.id.btnRefresh);
         btnHome = findViewById(R.id.btnHome);
@@ -205,19 +208,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initDefaults() {
-        DisplayMetrics dm = getResources().getDisplayMetrics();
-        int w = Prefs.getInt(Prefs.K_W, 0);
-        int h = Prefs.getInt(Prefs.K_H, 0);
-        int dpi = Prefs.getInt(Prefs.K_DPI, 0);
-        if (w <= 0) {
-            w = Math.max(320, (dm.widthPixels * 2 / 3) / 2 * 2);
-            h = Math.max(480, (dm.heightPixels * 2 / 3) / 2 * 2);
-            dpi = dm.densityDpi;
-        }
-        etW.setText(String.valueOf(w));
-        etH.setText(String.valueOf(h));
-        etDpi.setText(String.valueOf(dpi));
-
         cbAutoReturn.setChecked(Prefs.getBool(Prefs.K_AUTO_RETURN, true));
         cbBall.setChecked(Prefs.getBool(Prefs.K_BALL, false));
 
@@ -470,7 +460,7 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
-    /** 在虚拟屏上打开应用；没有屏就先建一块，然后（可选）自动回到本桌面 */
+    /** 打开应用前先让用户选择目标屏幕，再启动（可选自动回到本桌面） */
     private void startOnVScreen(Apps.Info info) {
         if (!ShizukuShell.isReady()) {
             toast("请先完成 Shizuku 授权");
@@ -480,21 +470,46 @@ public class MainActivity extends AppCompatActivity {
             toast("该应用没有可启动的界面");
             return;
         }
-        toast("正在虚拟屏打开 " + info.label + " …");
+        toast("正在读取屏幕列表…");
         bg(() -> {
-            int d = ensureDisplay();
-            if (d < 0) {
-                toast("虚拟屏创建失败，请检查 Shizuku 授权");
-                return;
-            }
-            ShizukuShell.Result r = VScreen.launch(info.pkg, info.comp, d);
-            Logger.log("启动 " + info.label + " -> 屏#" + d + " " + (r.ok() ? "[OK]" : "[失败] " + r.text()));
+            List<VScreen.Disp> ds = VScreen.list();
+            main.post(() -> showDisplayPicker(info, ds));
+        });
+    }
+
+    /** 弹出屏幕选择框：物理屏 / 系统虚拟屏 / 第三方屏幕都可以选 */
+    private void showDisplayPicker(Apps.Info info, List<VScreen.Disp> ds) {
+        if (isFinishing()) return;
+        if (ds.isEmpty()) {
+            toast("没有检测到任何屏幕");
+            return;
+        }
+        final String[] items = new String[ds.size()];
+        for (int i = 0; i < ds.size(); i++) {
+            VScreen.Disp d = ds.get(i);
+            items[i] = d.desc() + (d.id == selectedDisplay ? "   ← 当前" : "");
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("在哪个屏幕上打开「" + info.label + "」")
+                .setItems(items, (dlg, which) -> launchOn(info, ds.get(which)))
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    /** 在指定屏幕上启动应用，并按设置决定是否自动回到本桌面 */
+    private void launchOn(Apps.Info info, VScreen.Disp target) {
+        selectedDisplay = target.id;
+        if (dispAdapter != null) dispAdapter.notifyDataSetChanged();
+        updateScreenInfo();
+        bg(() -> {
+            ShizukuShell.Result r = VScreen.launch(info.pkg, info.comp, target.id);
+            Logger.log("启动 " + info.label + " -> 屏#" + target.id + " " + (r.ok() ? "[OK]" : "[失败] " + r.text()));
             if (!r.ok()) {
                 toast("启动失败：" + firstLine(r.text()));
                 return;
             }
             rememberLast(info.pkg);
-            toast("已在虚拟屏 #" + d + " 打开 " + info.label);
+            toast("已在屏 #" + target.id + " 打开 " + info.label);
             if (Prefs.getBool(Prefs.K_AUTO_RETURN, true)) {
                 sleep(1200);
                 VScreen.bringSelfHome(getPackageName());
@@ -542,7 +557,7 @@ public class MainActivity extends AppCompatActivity {
                 VScreen.Disp d = displays.get(position);
                 TextView t1 = v.findViewById(android.R.id.text1);
                 TextView t2 = v.findViewById(android.R.id.text2);
-                t1.setText("显示屏 #" + d.id + (d.isOverlay() ? "  ★ 本工具创建" : ""));
+                t1.setText("显示屏 #" + d.id + (d.isOverlay() ? "  ★ 系统虚拟屏" : ""));
                 t2.setText(d.kind() + " · " + d.w + "x" + d.h + " · " + d.uniqueId
                         + (d.name == null || d.name.isEmpty() ? "" : " · " + d.name));
                 v.setActivated(d.id == selectedDisplay);
@@ -556,20 +571,6 @@ public class MainActivity extends AppCompatActivity {
             dispAdapter.notifyDataSetChanged();
             updateScreenInfo();
             toast("已选中显示屏 #" + selectedDisplay);
-        });
-
-        btnCreate.setOnClickListener(v -> {
-            int w = parseInt(etW, 720), h = parseInt(etH, 1280), dpi = parseInt(etDpi, 280);
-            Prefs.putInt(Prefs.K_W, w);
-            Prefs.putInt(Prefs.K_H, h);
-            Prefs.putInt(Prefs.K_DPI, dpi);
-            toast("正在创建 " + w + "x" + h + " / " + dpi + "dpi …");
-            bg(() -> {
-                int d = VScreen.create(w, h, dpi);
-                toast(d >= 0 ? "虚拟屏已创建：display " + d : "创建失败（看日志）");
-                if (d >= 0) selectedDisplay = d;
-                refreshDisplays();
-            });
         });
 
         btnDestroy.setOnClickListener(v -> new AlertDialog.Builder(this)
@@ -668,7 +669,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateScreenInfo() {
         if (selectedDisplay < 0) {
-            tvScreenInfo.setText("当前屏幕：无虚拟屏\n点「创建虚拟屏」或直接点应用会自动建屏");
+            tvScreenInfo.setText("当前屏幕：未选择\n点应用后会先让你选择在哪个屏幕上打开");
             return;
         }
         final int id = selectedDisplay;
@@ -687,25 +688,6 @@ public class MainActivity extends AppCompatActivity {
             main.post(() -> tvScreenInfo.setText("当前选中：" + fd
                     + "\n屏上前台应用：" + (p == null || p.isEmpty() ? "（无）" : p)));
         });
-    }
-
-    /** 返回可用的虚拟屏 id；没有就按输入参数新建一块 */
-    private int ensureDisplay() {
-        if (selectedDisplay >= 0 && VScreen.byId(selectedDisplay) != null
-                && VScreen.byId(selectedDisplay).isOverlay()) {
-            return selectedDisplay;
-        }
-        VScreen.Disp d = VScreen.pickOverlay();
-        if (d != null) {
-            selectedDisplay = d.id;
-            return d.id;
-        }
-        int w = Prefs.getInt(Prefs.K_W, 720);
-        int h = Prefs.getInt(Prefs.K_H, 1280);
-        int dpi = Prefs.getInt(Prefs.K_DPI, 280);
-        int id = VScreen.create(w, h, dpi);
-        if (id >= 0) selectedDisplay = id;
-        return id;
     }
 
     // ---------------------------------------------------------------- log page
